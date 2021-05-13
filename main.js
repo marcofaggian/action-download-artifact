@@ -10,8 +10,8 @@ async function main() {
     const token = core.getInput("github_token", { required: true });
     const workflow = core.getInput("workflow", { required: true });
     const [owner, repo] = core.getInput("repo", { required: true }).split("/");
-    const paths = core.getInput("path", { required: true }).split(" ");
-    const names = core.getInput("name", { required: true }).split(" ");
+    const paths = core.getInput("paths", { required: true }).split(" ");
+    const names = core.getInput("names", { required: true }).split(" ");
     let pr = core.getInput("pr");
     let commit = core.getInput("commit");
     let branch = core.getInput("branch");
