@@ -65,11 +65,14 @@ async function main() {
           run_id: r.id
         });
         if (viableArtifacts.data.artifacts.length) {
+          console.log("found artifacts in run:", r.id, r.run_number);
           viableArtifacts = viableArtifacts.data.artifacts.filter((artifact) =>
             names.includes(artifact.name)
           );
           artifacts = [
-            ...names.map((n) => viableArtifacts.find((a) => a.name === n))
+            ...names.map((n) =>
+              [...artifacts, ...viableArtifacts].find((a) => a.name === n)
+            )
           ];
           if (artifacts.length === names.length) {
             return true;
