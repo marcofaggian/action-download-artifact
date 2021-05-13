@@ -64,8 +64,8 @@ async function main() {
           repo: repo,
           run_id: r.id
         });
-        if (artifacts.data.artifacts.length) {
-          viableArtifacts = artifacts.data.artifacts.filter((artifact) =>
+        if (viableArtifacts.data.artifacts.length) {
+          viableArtifacts = viableArtifacts.data.artifacts.filter((artifact) =>
             names.includes(artifact.name)
           );
           artifacts = [
