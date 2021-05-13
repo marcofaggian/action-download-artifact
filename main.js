@@ -76,7 +76,7 @@ async function main() {
           }
         }
       });
-      if (run?.id) {
+      if (run && run.id) {
         break;
       }
     }
