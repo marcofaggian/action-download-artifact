@@ -1,140 +1,122 @@
-const core = require('@actions/core')
-const github = require('@actions/github')
-const AdmZip = require('adm-zip')
-const filesize = require('filesize')
-const pathname = require('path')
-const fs = require('fs')
+const core = require("@actions/core");
+const github = require("@actions/github");
+const AdmZip = require("adm-zip");
+const filesize = require("filesize");
+const pathname = require("path");
+const fs = require("fs");
 
 async function main() {
-    try {
-        const token = core.getInput("github_token", { required: true })
-        const workflow = core.getInput("workflow", { required: true })
-        const [owner, repo] = core.getInput("repo", { required: true }).split("/")
-        const path = core.getInput("path", { required: true })
-        const name = core.getInput("name")
-        let workflowConclusion = core.getInput("workflow_conclusion")
-        let pr = core.getInput("pr")
-        let commit = core.getInput("commit")
-        let branch = core.getInput("branch")
-        let event = core.getInput("event")
-        let runID = core.getInput("run_id")
-        let runNumber = core.getInput("run_number")
+  try {
+    const token = core.getInput("github_token", { required: true });
+    const workflow = core.getInput("workflow", { required: true });
+    const [owner, repo] = core.getInput("repo", { required: true }).split("/");
+    const paths = core.getInput("path", { required: true }).split(" ");
+    const names = core.getInput("name", { required: true }).split(" ");
+    let pr = core.getInput("pr");
+    let commit = core.getInput("commit");
+    let branch = core.getInput("branch");
+    let event = core.getInput("event");
 
-        const client = github.getOctokit(token)
+    const client = github.getOctokit(token);
 
-        console.log("==> Workflow:", workflow)
+    console.log("==> Workflow:", workflow);
 
-        console.log("==> Repo:", owner + "/" + repo)
+    console.log("==> Repo:", owner + "/" + repo);
 
-        console.log("==> Conclusion:", workflowConclusion)
+    if (pr) {
+      console.log("==> PR:", pr);
 
-        if (pr) {
-            console.log("==> PR:", pr)
-
-            const pull = await client.pulls.get({
-                owner: owner,
-                repo: repo,
-                pull_number: pr,
-            })
-            commit = pull.data.head.sha
-        }
-
-        if (commit) {
-            console.log("==> Commit:", commit)
-        }
-
-        if (branch) {
-            branch = branch.replace(/^refs\/heads\//, "")
-            console.log("==> Branch:", branch)
-        }
-
-        if (event) {
-            console.log("==> Event:", event)
-        }
-
-        if (runNumber) {
-            console.log("==> RunNumber:", runNumber)
-        }
-
-        if (!runID) {
-            for await (const runs of client.paginate.iterator(client.actions.listWorkflowRuns, {
-                owner: owner,
-                repo: repo,
-                workflow_id: workflow,
-                branch: branch,
-                event: event,
-                status: workflowConclusion,
-            }
-            )) {
-                const run = runs.data.find(r => {
-                    if (commit) {
-                        return r.head_sha == commit
-                    }
-                    if (runNumber) {
-                        return r.run_number == runNumber
-                    }
-                    return true
-                })
-
-                if (run) {
-                    runID = run.id
-                    break
-                }
-            }
-        }
-
-        console.log("==> RunID:", runID)
-
-        let artifacts = await client.actions.listWorkflowRunArtifacts({
-            owner: owner,
-            repo: repo,
-            run_id: runID,
-        })
-
-        // One artifact or all if `name` input is not specified.
-        if (name) {
-            artifacts = artifacts.data.artifacts.filter((artifact) => {
-                return artifact.name == name
-            })
-        } else {
-            artifacts = artifacts.data.artifacts
-        }
-
-        if (artifacts.length == 0)
-            throw new Error("no artifacts found")
-
-        for (const artifact of artifacts) {
-            console.log("==> Artifact:", artifact.id)
-
-            const size = filesize(artifact.size_in_bytes, { base: 10 })
-
-            console.log(`==> Downloading: ${artifact.name}.zip (${size})`)
-
-            const zip = await client.actions.downloadArtifact({
-                owner: owner,
-                repo: repo,
-                artifact_id: artifact.id,
-                archive_format: "zip",
-            })
-
-            const dir = name ? path : pathname.join(path, artifact.name)
-
-            fs.mkdirSync(dir, { recursive: true })
-
-            const adm = new AdmZip(Buffer.from(zip.data))
-
-            adm.getEntries().forEach((entry) => {
-                const action = entry.isDirectory ? "creating" : "inflating"
-                const filepath = pathname.join(dir, entry.entryName)
-
-                console.log(`  ${action}: ${filepath}`)
-            })
-
-            adm.extractAllTo(dir, true)
-        }
-    } catch (error) {
-        core.setFailed(error.message)
+      const pull = await client.pulls.get({
+        owner: owner,
+        repo: repo,
+        pull_number: pr
+      });
+      commit = pull.data.head.sha;
     }
+
+    if (commit) {
+      console.log("==> Commit:", commit);
+    }
+
+    if (branch) {
+      branch = branch.replace(/^refs\/heads\//, "");
+      console.log("==> Branch:", branch);
+    }
+
+    if (event) {
+      console.log("==> Event:", event);
+    }
+
+    let artifacts = [];
+    for await (const runs of client.paginate.iterator(
+      client.actions.listWorkflowRuns,
+      {
+        owner: owner,
+        repo: repo,
+        workflow_id: workflow,
+        branch: branch,
+        event: event
+      }
+    )) {
+      const run = runs.data.find(async (r) => {
+        let artifacts = await client.actions.listWorkflowRunArtifacts({
+          owner: owner,
+          repo: repo,
+          run_id: r.id
+        });
+        if (artifacts.data.artifacts.length) {
+          const viableArtifacts = artifacts.data.artifacts.filter((artifact) =>
+            names.includes(artifact.name)
+          );
+          artifacts = [
+            ...names.map((n) => viableArtifacts.find((a) => a.name === n))
+          ];
+          if (artifacts.length === names.length) {
+            return true;
+          }
+        }
+      });
+      if (run?.id) {
+        break;
+      }
+    }
+
+    if (!artifacts.length) {
+      throw new Error("no artifacts found");
+    }
+
+    for (const [i, artifact] of artifacts.entries()) {
+      console.log("==> Artifact:", artifact.id);
+
+      const size = filesize(artifact.size_in_bytes, { base: 10 });
+
+      console.log(`==> Downloading: ${artifact.name}.zip (${size})`);
+
+      const zip = await client.actions.downloadArtifact({
+        owner: owner,
+        repo: repo,
+        artifact_id: artifact.id,
+        archive_format: "zip"
+      });
+
+      const dir = names[i] ? paths[i] : pathname.join(paths[i], artifact.name);
+
+      fs.mkdirSync(dir, { recursive: true });
+
+      const adm = new AdmZip(Buffer.from(zip.data));
+
+      adm.getEntries().forEach((entry) => {
+        const action = entry.isDirectory ? "creating" : "inflating";
+        const filepath = pathname.join(dir, entry.entryName);
+
+        console.log(`  ${action}: ${filepath}`);
+      });
+
+      adm.extractAllTo(dir, true);
+    }
+  } catch (error) {
+    core.setFailed(error.message);
+  }
 }
 
-main()
+main();

@@ -1,6 +1,6 @@
-name: Download workflow artifact
-description: Download and extract an artifact associated with given workflow and commit
-author: dawidd6
+name: Download multiple workflow artifacts
+description: An action that downloads and extracts multiple uploaded artifacts
+author: marcofaggian
 branding:
   icon: download
   color: blue
@@ -12,13 +12,6 @@ inputs:
   workflow:
     description: Workflow name
     required: true
-  workflow_conclusion:
-    description: |
-      Wanted status or conclusion or both to search for in recent runs
-
-      https://docs.github.com/en/free-pro-team@latest/rest/reference/actions#list-workflow-runs
-    required: false
-    default: completed,success
   repo:
     description: Repository name with owner (like actions/checkout)
     required: false
@@ -35,18 +28,12 @@ inputs:
   event:
     description: Event type
     required: false
-  run_id:
-    description: Workflow run id
-    required: false
-  run_number:
-    description: Workflow run number
-    required: false
-  name:
+  names:
     description: Artifact name (download all artifacts in not specified)
-    required: false
-  path:
+    required: true
+  paths:
     description: Where to unpack the artifact
-    required: false
+    required: true
     default: "./"
 runs:
   using: node12
