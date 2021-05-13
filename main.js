@@ -59,13 +59,13 @@ async function main() {
       }
     )) {
       const run = runs.data.find(async (r) => {
-        let artifacts = await client.actions.listWorkflowRunArtifacts({
+        let viableArtifacts = await client.actions.listWorkflowRunArtifacts({
           owner: owner,
           repo: repo,
           run_id: r.id
         });
         if (artifacts.data.artifacts.length) {
-          const viableArtifacts = artifacts.data.artifacts.filter((artifact) =>
+          viableArtifacts = artifacts.data.artifacts.filter((artifact) =>
             names.includes(artifact.name)
           );
           artifacts = [

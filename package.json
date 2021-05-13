@@ -1,6 +1,7 @@
 {
   "name": "action-download-artifact",
   "main": "main.js",
+  "version": "3.0.1",
   "dependencies": {
     "@actions/core": "^1.2.7",
     "@actions/github": "^4.0.0",
