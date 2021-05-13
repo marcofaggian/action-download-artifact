@@ -102,7 +102,7 @@ async function main() {
         archive_format: "zip"
       });
 
-      const dir = names[i] ? paths[i] : pathname.join(paths[i], artifact.name);
+      const dir = paths[i];
 
       fs.mkdirSync(dir, { recursive: true });
 
