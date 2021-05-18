@@ -19,7 +19,7 @@ async function main() {
 
     const client = github.getOctokit(token);
 
-    console.log("==> Workflow:", workflow);
+    console.log("==> Workflow:", workflow, token);
 
     console.log("==> Repo:", owner + "/" + repo);
 
