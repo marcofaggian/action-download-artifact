@@ -8,87 +8,47 @@ const fs = require("fs");
 async function main() {
   try {
     const token = core.getInput("github_token", { required: true });
-    const workflow = core.getInput("workflow", { required: true });
     const [owner, repo] = core.getInput("repo", { required: true }).split("/");
+    const maxPages = core.getInput("maxPages") || 20;
+    const per_page = core.getInput("perPage") || 200;
+
     const paths = core.getInput("paths", { required: true }).split(" ");
     const names = core.getInput("names", { required: true }).split(" ");
-    let pr = core.getInput("pr");
-    let commit = core.getInput("commit");
-    let branch = core.getInput("branch");
-    let event = core.getInput("event");
+    const selectedArtifacts = names.reduce(
+      (acc, name) => ({ ...acc, [name]: null }),
+      {}
+    );
 
     const client = github.getOctokit(token);
 
-    console.log("==> Workflow:", workflow, token);
-
     console.log("==> Repo:", owner + "/" + repo);
 
-    if (pr) {
-      console.log("==> PR:", pr);
-
-      const pull = await client.pulls.get({
-        owner: owner,
-        repo: repo,
-        pull_number: pr
+    for (let page = 0; page < maxPages; page++) {
+      const {
+        data: { artifacts }
+      } = await client.actions.listArtifactsForRepo({
+        order: "desc",
+        owner,
+        repo,
+        page,
+        per_page
       });
-      commit = pull.data.head.sha;
-    }
-
-    if (commit) {
-      console.log("==> Commit:", commit);
-    }
-
-    if (branch) {
-      branch = branch.replace(/^refs\/heads\//, "");
-      console.log("==> Branch:", branch);
-    }
-
-    if (event) {
-      console.log("==> Event:", event);
-    }
-
-    let artifacts = [];
-    for await (const runs of client.paginate.iterator(
-      client.actions.listWorkflowRuns,
-      {
-        owner: owner,
-        repo: repo,
-        workflow_id: workflow,
-        branch: branch,
-        event: event
-      }
-    )) {
-      const run = runs.data.find(async (r) => {
-        let viableArtifacts = await client.actions.listWorkflowRunArtifacts({
-          owner: owner,
-          repo: repo,
-          run_id: r.id
-        });
-        if (viableArtifacts.data.artifacts.length) {
-          console.log("found artifacts in run:", r.id, r.run_number);
-          viableArtifacts = viableArtifacts.data.artifacts.filter((artifact) =>
-            names.includes(artifact.name)
-          );
-          artifacts = [
-            ...names.map((n) =>
-              [...artifacts, ...viableArtifacts].find((a) => a.name === n)
-            )
-          ];
-          if (artifacts.length === names.length) {
-            return true;
-          }
-        }
-      });
-      if (run && run.id) {
+      names.forEach(
+        (selected) =>
+          (selectedArtifacts[selected] = artifacts.find(
+            ({ name }) => name === selected
+          ))
+      );
+      if (!Object.values(selectedArtifacts).filter((v) => v === null).length) {
         break;
       }
     }
 
-    if (!artifacts.length) {
+    if (!Object.values(selectedArtifacts).length) {
       throw new Error("no artifacts found");
     }
 
-    for (const [i, artifact] of artifacts.entries()) {
+    for (const [i, artifact] of Object.values(selectedArtifacts).entries()) {
       console.log("==> Artifact:", artifact.id);
 
       const size = filesize(artifact.size_in_bytes, { base: 10 });
