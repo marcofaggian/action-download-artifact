@@ -48,6 +48,11 @@ async function main() {
       throw new Error("no artifacts found");
     }
 
+    console.log(
+      "Selected artifacts",
+      JSON.stringify(selectedArtifacts, null, 2)
+    );
+
     for (const [i, artifact] of Object.values(selectedArtifacts).entries()) {
       console.log("==> Artifact:", artifact.id);
 
