@@ -1,11 +1,11 @@
 {
-  "name": "action-download-artifact",
-  "main": "main.js",
-  "version": "3.0.8",
-  "dependencies": {
-    "@actions/core": "^1.2.7",
-    "@actions/github": "^4.0.0",
-    "adm-zip": "^0.5.5",
-    "filesize": "^6.2.2"
-  }
+    "name": "action-download-artifact",
+    "main": "main.js",
+    "version": "3.0.8",
+    "dependencies": {
+        "@actions/core": "^1.10.0",
+        "@actions/github": "^4.0.0",
+        "adm-zip": "^0.5.5",
+        "filesize": "^6.2.2"
+    }
 }
