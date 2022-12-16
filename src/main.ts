@@ -36,18 +36,19 @@ async function main() {
         per_page
       });
 
-      if (artifacts.length)
+      if (!!artifacts.length)
         names.forEach(
           (selected) =>
             (selectedArtifacts[selected] = artifacts.find(
               ({ name }) => name === selected
             ))
         );
-      if (!Object.values(selectedArtifacts).filter((v) => v === null).length) {
+
+      if (!Object.values(selectedArtifacts).filter((v) => v === null).length)
         break;
-      }
     }
 
+    // Checking after filling and filtering
     if (!Object.values(selectedArtifacts).length) {
       throw new Error("no artifacts found");
     }
@@ -57,16 +58,21 @@ async function main() {
       JSON.stringify(selectedArtifacts, null, 2)
     );
 
+    // Processing each artifact one at a time
     for (const [i, artifact] of Object.values(selectedArtifacts).entries()) {
       if (!artifact) {
         throw new Error(`Artifact selected as "${i}" is undefined`);
       }
+
       console.log("==> Artifact:", artifact.id);
+      console.log(
+        `==> Downloading: ${artifact.name}.zip (${filesize(
+          artifact?.size_in_bytes,
+          { base: 10 }
+        )})`
+      );
 
-      const size = filesize(artifact?.size_in_bytes, { base: 10 });
-
-      console.log(`==> Downloading: ${artifact.name}.zip (${size})`);
-
+      // Getting the artifact
       const zip = await client.rest.actions.downloadArtifact({
         owner: owner,
         repo: repo,
@@ -79,10 +85,13 @@ async function main() {
 
       const dir = paths[i];
 
+      // Create directory
       fs.mkdirSync(dir, { recursive: true });
 
+      // Save zip file from network request
       const adm = new AdmZip(Buffer.from(zip.data as ArrayBuffer));
 
+      // Logging entries
       adm.getEntries().forEach((entry) => {
         const action = entry.isDirectory ? "creating" : "inflating";
         const filepath = pathname.join(dir, entry.entryName);
@@ -90,6 +99,7 @@ async function main() {
         console.log(`  ${action}: ${filepath}`);
       });
 
+      // Extracting artifact
       adm.extractAllTo(dir, true);
     }
   } catch (error) {
