@@ -53,6 +53,14 @@ async function main() {
       throw new Error("no artifacts found");
     }
 
+    if (Object.values(selectedArtifacts).length !== paths.length) {
+      throw new Error(
+        `Params are not matching: "names" (given ${names}, found ${Object.keys(
+          selectedArtifacts
+        )}) and "paths" (${paths})`
+      );
+    }
+
     console.log(
       "Selected artifacts",
       JSON.stringify(selectedArtifacts, null, 2)
@@ -61,7 +69,11 @@ async function main() {
     // Processing each artifact one at a time
     for (const [i, artifact] of Object.values(selectedArtifacts).entries()) {
       if (!artifact) {
-        throw new Error(`Artifact selected as "${i}" is undefined`);
+        throw new Error(
+          `Artifact selected as "${
+            Object.keys(selectedArtifacts)[i]
+          }" is undefined`
+        );
       }
 
       console.log("==> Artifact:", artifact.id);
