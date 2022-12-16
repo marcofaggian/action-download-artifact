@@ -1,44 +1,48 @@
-const core = require("@actions/core");
-const github = require("@actions/github");
-const AdmZip = require("adm-zip");
-const filesize = require("filesize");
-const pathname = require("path");
-const fs = require("fs");
+import core from "@actions/core";
+import github from "@actions/github";
+import AdmZip from "adm-zip";
+import { filesize } from "filesize";
+import fs from "fs";
+import pathname from "path";
+import { SelectedArtifact } from "./types";
 
 async function main() {
   try {
     const token = core.getInput("github_token", { required: true });
     const [owner, repo] = core.getInput("repo", { required: true }).split("/");
-    const maxPages = core.getInput("maxPages") || 20;
-    const per_page = core.getInput("perPage") || 200;
+    const maxPages = Number(core.getInput("maxPages")) || 20;
+    const per_page = Number(core.getInput("perPage")) || 200;
 
     const paths = core.getInput("paths", { required: true }).split(" ");
     const names = core.getInput("names", { required: true }).split(" ");
     const selectedArtifacts = names.reduce(
       (acc, name) => ({ ...acc, [name]: null }),
       {}
-    );
+    ) as SelectedArtifact;
 
     const client = github.getOctokit(token);
 
     console.log("==> Repo:", owner + "/" + repo);
 
+    // Scan all the pages
     for (let page = 0; page < maxPages; page++) {
       const {
         data: { artifacts }
-      } = await client.actions.listArtifactsForRepo({
+      } = await client.rest.actions.listArtifactsForRepo({
         order: "desc",
         owner,
         repo,
         page,
         per_page
       });
-      names.forEach(
-        (selected) =>
-          (selectedArtifacts[selected] = artifacts.find(
-            ({ name }) => name === selected
-          ))
-      );
+
+      if (artifacts.length)
+        names.forEach(
+          (selected) =>
+            (selectedArtifacts[selected] = artifacts.find(
+              ({ name }) => name === selected
+            ))
+        );
       if (!Object.values(selectedArtifacts).filter((v) => v === null).length) {
         break;
       }
@@ -54,24 +58,30 @@ async function main() {
     );
 
     for (const [i, artifact] of Object.values(selectedArtifacts).entries()) {
+      if (!artifact) {
+        throw new Error(`Artifact selected as "${i}" is undefined`);
+      }
       console.log("==> Artifact:", artifact.id);
 
-      const size = filesize(artifact.size_in_bytes, { base: 10 });
+      const size = filesize(artifact?.size_in_bytes, { base: 10 });
 
       console.log(`==> Downloading: ${artifact.name}.zip (${size})`);
 
-      const zip = await client.actions.downloadArtifact({
+      const zip = await client.rest.actions.downloadArtifact({
         owner: owner,
         repo: repo,
         artifact_id: artifact.id,
         archive_format: "zip"
       });
+      if (!zip || !zip.data) {
+        throw new Error(`Unable to download artifact ${artifact.id}`);
+      }
 
       const dir = paths[i];
 
       fs.mkdirSync(dir, { recursive: true });
 
-      const adm = new AdmZip(Buffer.from(zip.data));
+      const adm = new AdmZip(Buffer.from(zip.data as ArrayBuffer));
 
       adm.getEntries().forEach((entry) => {
         const action = entry.isDirectory ? "creating" : "inflating";
@@ -83,7 +93,11 @@ async function main() {
       adm.extractAllTo(dir, true);
     }
   } catch (error) {
-    core.setFailed(error.message);
+    if (error instanceof Error) {
+      core.setFailed(error.message);
+    } else {
+      core.setFailed(String(error));
+    }
   }
 }
 
